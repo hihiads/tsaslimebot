@@ -6,22 +6,16 @@ const { Client, GatewayIntentBits } = require('discord.js')
 const { MongoClient } = require('mongodb')
 const crypto = require('crypto')
 const fs = require('fs')
-
-
 const express = require("express");
+require('dotenv').config();
+
+// --- EXPRESS SERVER ---
 const app = express();
+app.listen(3000, () => console.log("Project is running!"))
+app.get("/", (req, res) => res.send("Hello world!"))
 
-app. listen(3000, () => {
-    console.log("Project is running!");
-})
-
-app.get("/", (req, res) => {
-  res.send("Hello world!");
-})
 // --- CONFIG ---
-// (ovo je OK jer ne sadrži osjetljive podatke)
 const config = JSON.parse(fs.readFileSync('./config.json'))
-
 
 // --- MONGODB ---
 if (!process.env.MONGO_URI) {
@@ -34,19 +28,23 @@ if (!process.env.MONGO_DB) {
   process.exit(1)
 }
 
-const mongoClient = new MongoClient(config.mongoUri, {
+const mongoClient = new MongoClient(process.env.MONGO_URI, {
   tls: true,
   tlsAllowInvalidCertificates: true,
 })
 
 let linksCollection
 
-
 async function mongoConnect() {
-  await mongoClient.connect();
-  const db = mongoClient.db('slimebotdb'); // ime tvoje baze
-  linksCollection = db.collection('links');
-  console.log('✅ Connected to MongoDB Atlas');
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db(process.env.MONGO_DB);
+    linksCollection = db.collection('links');
+    console.log('✅ Connected to MongoDB Atlas');
+  } catch (err) {
+    console.error('❌ MongoDB connection failed:', err);
+    process.exit(1);
+  }
 }
 
 // --- DISCORD BOT ---
@@ -501,6 +499,7 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
 
 
 
