@@ -6,7 +6,7 @@ const { Client, GatewayIntentBits } = require('discord.js')
 const { MongoClient } = require('mongodb')
 const crypto = require('crypto')
 const fs = require('fs')
-require('dotenv').config();
+
 
 const express = require("express");
 const app = express();
@@ -499,4 +499,5 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
 
