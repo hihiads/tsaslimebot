@@ -34,7 +34,11 @@ if (!process.env.MONGO_DB) {
   process.exit(1)
 }
 
-const mongoClient = new MongoClient(process.env.MONGO_URI)
+const mongoClient = new MongoClient(config.mongoUri, {
+  tls: true,
+  tlsAllowInvalidCertificates: true,
+})
+
 let linksCollection
 
 
@@ -499,5 +503,6 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
 
 
