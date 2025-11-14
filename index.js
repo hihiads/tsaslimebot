@@ -43,12 +43,10 @@ let linksCollection
 
 
 async function mongoConnect() {
-  await mongoClient.connect()
-
-  const db = mongoClient.db(process.env.MONGO_DB)
-  linksCollection = db.collection(config.mongoCollection)
-
-  console.log('✅ Connected to MongoDB Atlas')
+  await mongoClient.connect();
+  const db = mongoClient.db('slimebotdb'); // ime tvoje baze
+  linksCollection = db.collection('links');
+  console.log('✅ Connected to MongoDB Atlas');
 }
 
 // --- DISCORD BOT ---
@@ -503,6 +501,7 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
 
 
 
