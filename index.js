@@ -7,7 +7,7 @@ const { MongoClient } = require('mongodb')
 const crypto = require('crypto')
 const fs = require('fs')
 const express = require("express");
-require('dotenv').config();
+
 
 // --- EXPRESS SERVER ---
 const app = express();
@@ -499,6 +499,7 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
 
 
 
