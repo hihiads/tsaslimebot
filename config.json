@@ -1,0 +1,7 @@
+{
+  
+  "mongoDb": "slimebotdb",
+  "mongoCollection": "links",
+  "linkTtlMinutes": 10,
+  "minecraftPassword": "nigger"
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/package",
+  "name": "aaaaaaaaaaaaaaaaaaa",
+  "version": "1.0.0",
+  "description": "Minecraft bot with auto-mining and combat features",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "discord.js": "^14.24.2",
+    "dotenv": "^17.2.3",
+    "minecraft-data": "^3.100.0",
+    "minecraft-protocol": "^1.62.0",
+    "mineflayer": "^4.33.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "mongodb": "^7.0.0",
+    "vec3": "^0.1.10"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
