@@ -8,34 +8,28 @@ const crypto = require('crypto')
 const fs = require('fs')
 require('dotenv').config();
 
-
 // --- CONFIG ---
-// (ovo je OK jer ne sadrži osjetljive podatke)
 const config = JSON.parse(fs.readFileSync('./config.json'))
 
-
-// --- MONGODB ---
+// --- MONGO ---
 if (!process.env.MONGO_URI) {
-  console.error("❌ ERROR: MONGO_URI nije postavljen u Render Environment Variables!")
+  console.error("Bruv, MONGO_URI ain't set innit!")
   process.exit(1)
 }
 
 if (!process.env.MONGO_DB) {
-  console.error("❌ ERROR: MONGO_DB nije postavljen u Render Environment Variables!")
+  console.error("Fam, MONGO_DB ain't set innit!")
   process.exit(1)
 }
 
 const mongoClient = new MongoClient(process.env.MONGO_URI)
 let linksCollection
 
-
 async function mongoConnect() {
   await mongoClient.connect()
-
   const db = mongoClient.db(process.env.MONGO_DB)
   linksCollection = db.collection(config.mongoCollection)
-
-  console.log('✅ Connected to MongoDB Atlas')
+  console.log('✅ Mongo connected blud')
 }
 
 // --- DISCORD BOT ---
@@ -49,173 +43,127 @@ const discord = new Client({
   partials: ['CHANNEL']
 })
 
-discord.once('ready', () => console.log(`🤖 Discord online as ${discord.user.tag}`))
+discord.once('ready', () => console.log(`🤖 Discord live fam as ${discord.user.tag}`))
+
+const ALLOWED_IDS = ['990626592474677349', '1241862272234688523']
+let botRunning = false
 
 discord.on('messageCreate', async msg => {
   if (msg.author.bot) return
   const content = msg.content.trim()
 
-  // $ping
-  if (content === '$ping') {
-    msg.reply('🏓 Pong!')
-    return
-  }
-const ALLOWED_IDS = ['990626592474677349', '1241862272234688523']
+  // --- PING ---
+  if (content === '$ping') return msg.reply('🏓 Yo wagwan, pong innit!')
 
-if (content === '$start') {
-  if (!ALLOWED_IDS.includes(msg.author.id)) {
-    return msg.reply('❌ Fam u arent HIM.')
-  }
-
-  if (botRunning) {
-    return msg.reply('⚠️ Fam u stupid or something u can see that the bot is active.')
+  // --- START BOT ---
+  if (content === '$start') {
+    if (!ALLOWED_IDS.includes(msg.author.id)) return msg.reply('❌ Bruv u ain’t allowed fam.')
+    if (botRunning) return msg.reply('⚠️ Yo fam, bot already runnin innit.')
+    try { startBot(); botRunning = true; msg.reply('✅ Bot up n runnin bruv!') } 
+    catch(err) { msg.reply(`❌ Bruv error: ${err.message}`) }
   }
 
-  try {
-    startBot()
-    botRunning = true
-    msg.reply('✅ Minecraft bot started successfully!')
-  } catch (err) {
-    msg.reply(`❌ Error while starting bot: ${err.message}`)
-  }
-}
-
-if (content === '$stop') {
-  if (!ALLOWED_IDS.includes(msg.author.id)) {
-    return msg.reply('❌ Fam u arent HIM.')
+  // --- STOP BOT ---
+  if (content === '$stop') {
+    if (!ALLOWED_IDS.includes(msg.author.id)) return msg.reply('❌ Ain’t ur ting bruv.')
+    if (!botRunning || !bot) return msg.reply('⚠️ Bot ain’t online fam.')
+    try { bot.quit('Stopped via Discord command.'); botRunning = false; msg.reply('🛑 Bot off innit.') } 
+    catch(err) { msg.reply(`❌ Error blud: ${err.message}`) }
   }
 
-  if (!botRunning || !bot) {
-    return msg.reply('⚠️ Fam bot is not online.')
-  }
-
-  try {
-    bot.quit('Stopped via Discord command.')
-    botRunning = false
-    msg.reply('🛑 Alr fam i stopped the bot.')
-  } catch (err) {
-    msg.reply(`❌ Error mate: ${err.message}`)
-  }
-}
-
-  // $link <CODE>
+  // --- LINK ---
   if (content.startsWith('$link')) {
     const args = content.split(/\s+/)
-    if (args.length < 2) return msg.reply('❗ Usage: `$link <code>`')
-
+    if (args.length < 2) return msg.reply('❗ Yo fam, use `$link <code>` bruv.')
     const code = args[1].toUpperCase()
-    const doc = await linksCollection.findOne({ code, used: false })
+    
+    const doc = await linksCollection.findOne({ code })
+    if (!doc) return msg.reply('❌ Code nah exist blud.')
+    if (doc.used) return msg.reply('❌ Code done been used innit.')
+    if (doc.expiresAt && doc.expiresAt < new Date()) return msg.reply('⏰ Code expired fam.')
 
-    if (!doc) return msg.reply('❌ Fam ur code is incorrect or expired.')
-    if (doc.expiresAt && doc.expiresAt < new Date()) return msg.reply('⏰ Mate ur code expired.')
+    // check if Discord user already linked
+    const existingLink = await linksCollection.findOne({ discordId: msg.author.id })
+    if (existingLink) return msg.reply(`❌ Yo bruv, ur Discord already linked to ${existingLink.mcUsername}.`)
 
     await linksCollection.updateOne(
       { _id: doc._id },
       { $set: { used: true, discordId: msg.author.id, linkedAt: new Date() } }
     )
+    msg.reply(`✅ Linked innit! Your Minecraft account **${doc.mcUsername}** now got Discord fam.`)
 
-    msg.reply(`✅ Successfully linked to Minecraft account **${doc.mcUsername}**!`)
     try {
       if (global.minebot?.players[doc.mcUsername]) {
-        global.minebot.chat(`/w ${doc.mcUsername} ✅ Good boy ur discord acc (${msg.author.tag}) is now linked!`)
+        global.minebot.chat(`/w ${doc.mcUsername} Yo wagwan, ur Discord (${msg.author.tag}) linked bruv!`)
       }
-    } catch (err) {
-      console.log('⚠️ Failed to whisper to player:', err.message)
-    }
+    } catch(err) { console.log('⚠️ Whisper fail fam:', err.message) }
   }
-    if (content === '$status') {
-    if (!global.minebot) return msg.reply('❌ Minecraft bot nije trenutno aktivan.')
 
+  // --- STATUS ---
+  if (content === '$status') {
+    if (!global.minebot) return msg.reply('❌ Bot ain’t online fam.')
     const bot = global.minebot
     let response = `🤖 **Minecraft Bot Status**\n`
     response += `🟢 Bot: **${bot.username}**\n`
-    response += `📡 Ping: **${bot.player?.ping || 'N/A'} ms**\n\n`
-
-    const chestData = []
-    for (const [kitName, pos] of Object.entries(CHESTS)) {
-      try {
-        const chestBlock = bot.world.getBlock(pos)
-        if (chestBlock && bot.openContainer) {
-          const chest = await bot.openContainer(chestBlock)
-          const shulkers = chest.containerItems().filter(i => i.name.includes('shulker_box'))
-          chestData.push(`📦 **${kitName}**: ${shulkers.length} shulkera`)
-          chest.close()
-        } else {
-          chestData.push(`📦 **${kitName}**: ⚠️ Chest nije pronađen`)
-        }
-      } catch (err) {
-        chestData.push(`📦 **${kitName}**: ❌ Greška (${err.message})`)
-      }
-    }
-
-    response += chestData.join('\n')
+    response += `📡 Ping: **${bot.player?.ping || 'N/A'} ms**\n`
     msg.reply(response)
   }
-if (content.startsWith('$send')) {
-  if (!ALLOWED_IDS.includes(msg.author.id)) {
-    return msg.reply('❌ Bro ur not him.')
+
+  // --- SEND MSG ---
+  if (content.startsWith('$send')) {
+    if (!ALLOWED_IDS.includes(msg.author.id)) return msg.reply('❌ Nah bruv, u can’t send.')
+    const messageToSend = content.replace('$send', '').trim()
+    if (!messageToSend) return msg.reply('⚠️ Use `$send <msg>` fam.')
+    if (!global.minebot) return msg.reply('❌ Bot offline bruv.')
+    try { global.minebot.chat(messageToSend); msg.reply(`✅ Sent to MC: \`${messageToSend}\``) } 
+    catch(err) { msg.reply(`❌ Error fam: ${err.message}`) }
   }
 
-  const messageToSend = content.replace('$send', '').trim()
-  if (!messageToSend) {
-    return msg.reply('⚠️ use: `$send <msg>`')
+  // --- WHOIS (Discord -> MC) ---
+  if (content.startsWith('$whois')) {
+    const mention = msg.mentions.users.first()
+    if (!mention) return msg.reply('❗ Mention a Discord user fam.')
+    const doc = await linksCollection.findOne({ discordId: mention.id })
+    if (!doc) return msg.reply('❌ This Discord ain’t linked to no Minecraft account bruv.')
+    msg.reply(`✅ ${mention.tag} linked to MC: ${doc.mcUsername}`)
   }
 
-  if (!global.minebot) {
-    return msg.reply('❌ Fam the bot isnt online.')
+  // --- MC (MC -> Discord) ---
+  if (content.startsWith('$mc')) {
+    const args = content.split(/\s+/)
+    if (args.length < 2) return msg.reply('❗ Use `$mc <MC username>` fam.')
+    const username = args[1]
+    const doc = await linksCollection.findOne({ mcUsername: username })
+    if (!doc) return msg.reply('❌ MC account ain’t linked to any Discord blud.')
+    msg.reply(`✅ MC ${username} linked to Discord: <@${doc.discordId}>`)
   }
-
-  try {
-    global.minebot.chat(messageToSend)
-    msg.reply(`✅ Msg sent to 8b8t: \`${messageToSend}\``)
-  } catch (err) {
-    msg.reply(`❌ Error : ${err.message}`)
-  }
-}
-
 })
 
-
-// --- HELPER FUNCTIONS ---
-function generateHexCode() {
-  return crypto.randomBytes(3).toString('hex').toUpperCase() // 6 hex digits
-}
-
+// --- HELPERS ---
+function generateHexCode() { return crypto.randomBytes(3).toString('hex').toUpperCase() }
 async function createLinkForMcPlayer(mcUsername) {
   const code = generateHexCode()
   const now = new Date()
-  const expiresAt = new Date(now.getTime() + config.linkTtlMinutes * 60 * 1000)
+  const expiresAt = new Date(now.getTime() + config.linkTtlMinutes*60*1000)
   const doc = {
     mcUsername,
     code,
     createdAt: now,
     expiresAt,
     used: false,
-    discordId: true
+    discordId: null,
+    linkedAt: null
   }
   await linksCollection.insertOne(doc)
   return { code, expiresAt }
 }
 
-// --- MAKE AVAILABLE TO MC BOT ---
 global.createLinkForMcPlayer = createLinkForMcPlayer
-global.minebot = null // set later
+global.minebot = null
 
-// --- MINECRAFT BOT ---
-const playerCooldowns = {}
-const DELIVERY_COOLDOWN = 120 * 1000 // 200s normal delay
-const WHITELIST_COOLDOWN = 30 * 1000  // 60s for whitelist players
-let delivering = false
-
-// Whitelisted players (reduced delay)
-const WHITELIST = ['Malbacoo', 's5der', 'Brock', 'Tyler']
-
+// --- MC BOT ---
 let bot = null
-let botRunning = false
-
-
 const BLACKLIST = ['IceBox','Clife2013','miktyluchitun','clownperice132','badbad_con','panana777','DEMOMAX','hadi09','progameingYT','Cauazingg_']
-
 const CHESTS = {
   pvp: new Vec3(29999983, -59, -6517),
   build: new Vec3(29999983, -59, -6519),
@@ -224,8 +172,10 @@ const CHESTS = {
   invis: new Vec3(29999983, -59, -6525),
   quartz: new Vec3(29999983, -59, -6529),
   redstone: new Vec3(29999983, -59, -6533),
-  
 }
+let playerCooldowns = {}
+const DELIVERY_COOLDOWN = 120*1000
+let delivering = false
 
 function startBot() {
   bot = mineflayer.createBot({
@@ -495,3 +445,4 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
+
