@@ -6,16 +6,13 @@ const { Client, GatewayIntentBits } = require('discord.js')
 const { MongoClient } = require('mongodb')
 const crypto = require('crypto')
 const fs = require('fs')
-const express = require("express");
+require('dotenv').config();
 
-
-// --- EXPRESS SERVER ---
-const app = express();
-app.listen(3000, () => console.log("Project is running!"))
-app.get("/", (req, res) => res.send("Hello world!"))
 
 // --- CONFIG ---
+// (ovo je OK jer ne sadrži osjetljive podatke)
 const config = JSON.parse(fs.readFileSync('./config.json'))
+
 
 // --- MONGODB ---
 if (!process.env.MONGO_URI) {
@@ -28,23 +25,17 @@ if (!process.env.MONGO_DB) {
   process.exit(1)
 }
 
-const mongoClient = new MongoClient(process.env.MONGO_URI, {
-  tls: true,
-  tlsAllowInvalidCertificates: false,
-})
-
+const mongoClient = new MongoClient(process.env.MONGO_URI)
 let linksCollection
 
+
 async function mongoConnect() {
-  try {
-    await mongoClient.connect();
-    const db = mongoClient.db(process.env.MONGO_DB);
-    linksCollection = db.collection('links');
-    console.log('✅ Connected to MongoDB Atlas');
-  } catch (err) {
-    console.error('❌ MongoDB connection failed:', err);
-    process.exit(1);
-  }
+  await mongoClient.connect()
+
+  const db = mongoClient.db(process.env.MONGO_DB)
+  linksCollection = db.collection(config.mongoCollection)
+
+  console.log('✅ Connected to MongoDB Atlas')
 }
 
 // --- DISCORD BOT ---
@@ -212,7 +203,7 @@ global.minebot = null // set later
 
 // --- MINECRAFT BOT ---
 const playerCooldowns = {}
-const DELIVERY_COOLDOWN = 200 * 1000 // 200s normal delay
+const DELIVERY_COOLDOWN = 120 * 1000 // 200s normal delay
 const WHITELIST_COOLDOWN = 30 * 1000  // 60s for whitelist players
 let delivering = false
 
@@ -226,11 +217,14 @@ let botRunning = false
 const BLACKLIST = ['IceBox','Clife2013','miktyluchitun','clownperice132','badbad_con','panana777','DEMOMAX','hadi09','progameingYT','Cauazingg_']
 
 const CHESTS = {
-  pvp: new Vec3(29999979,-37,1008),
-  tools: new Vec3(29999979,-37,1008),
-  totems: new Vec3(29999983,-37,1007),
-  build: new Vec3(29999983,-37,1006),
-  glass: new Vec3(29999983,-38,990),
+  pvp: new Vec3(29999983, -59, -6517),
+  build: new Vec3(29999983, -59, -6519),
+  shulker: new Vec3(29999983, -59, -6521),
+  raid: new Vec3(29999983, -59, -6523),
+  invis: new Vec3(29999983, -59, -6525),
+  quartz: new Vec3(29999983, -59, -6529),
+  redstone: new Vec3(29999983, -59, -6533),
+  
 }
 
 function startBot() {
@@ -243,47 +237,47 @@ function startBot() {
   global.minebot = bot
   botRunning = true
   bot.loadPlugin(pathfinder)
+  // odmah nakon bot.loadPlugin(pathfinder)
+const kitMessages = [
+  'Need a kit? Type $kit list.',
+  'Bot is coord logger free. We value your privacy.',
+  'Want some gear? $kit tools!',
+  'Grab your PvP kit with $kit pvp.',
+  'Get ready! $kit list for your adventure.',
+  'Time for some action! $kit list now.',
+  'Made by s5der. $kit list to see available kits!',
+  'If you see this message you are cool.',
+  'Join The Slime Avengory on dsc,gg/supremeslime',
+  'Do not spam commands, you are gonna get blacklisted.',
+  '$kit pvp, for PvP gear.',
+  'Special thanks to Sniptoes, Malbacoo, Brock and Tyler for making this possible!',
+  '$kit invis to order invisibility gear.',
+  '$kit raid to get raid gear.',
+  '$kit shulker to get shulker boxes.',
+];
 
-function startKitBot() {
-  if (!bot || !bot.connected) return
-  // auto messages
-  const kitMessages = [
-    'Need a kit? Type $kit list.',
-    'Bot is coord logger free. We value your privacy.',
-    'Want some gear? $kit tools!',
-    'Grab your PvP kit with $kit pvp.',
-    'Get ready! $kit list for your adventure.',
-    'Time for some action! $kit list now.',
-    'Made by s5der. $kit list to see avilable kits!.',
-    'If you see this message you are cool.',
-    'Join The Slime Avengory on ⓓⓢⓒ.ⓖⓖ/ⓢⓤⓟⓡⓔⓜⓔⓢⓛⓘⓜⓔ',
-    'Do not spam commands, you are gonna get blacklisted.',
-    '$kit pvp, for PvP gear.',
-    'Special thanks to Sniptoes, Malbacoo, Brock and Tyler for making this possible!',
-  ]
+let messageIntervalStarted = false;
+
+bot.on('spawn', () => {
+  if (messageIntervalStarted) return;
+  messageIntervalStarted = true;
 
   setInterval(() => {
-    if (!bot || !bot.connected) return
-    const msg = kitMessages[Math.floor(Math.random() * kitMessages.length)]
-    bot.chat(msg)
-  }, 25 * 1000)
+    const msg = kitMessages[Math.floor(Math.random() * kitMessages.length)];
+    bot.chat(msg);
+  }, 25 * 1000);
+  bot.chat("/login nigger")
+});
 
-  // listen to all messages (chat + whispers)
-  bot.on('message', msg => {
-    const text = msg.toString()
-    if (!text || text.includes(bot.username)) return
-    handleChatMessage(text)
-  })
-}
 
   bot.on('death', () => {
     setTimeout(() => {
       try {
-        bot.chat("/home stashfar")
+        bot.chat("/home stash")
         console.log("Bot is home!")
       } catch (e) { /* ignore if can't chat while dead */ }
       bot.once('spawn', () => {})
-    }, 3000)
+    }, 2000)
   })
 
   bot.on('chat', async (username, message) => {
@@ -320,15 +314,17 @@ function startKitBot() {
       bot.chat('🛑 Stopped following.')
     }
 
-    const availableKits = ['pvp','tools','totems','build','glass', 'totem']
+    const availableKits = ['pvp','tools', 'build','shulker','raid','invis', 'redstone','quartz']
     if (text.includes('$kit list')) bot.chat(`/w ${username} 📦 Available kits: ${availableKits.join(', ')}`)
 
     if (text.includes('$kit pvp')) deliverKit(username,'pvp')
-    if (text.includes('$kit tools')) deliverKit(username,'tools')
-    if (text.includes('$kit totems')) deliverKit(username,'totems')
-    if (text.includes('$kit build')) deliverKit(username,'build')
-    if (text.includes('$kit glass')) deliverKit(username,'glass')
-    if (text.includes('$kit totem')) deliverKit(username,'totem')
+      if (text.includes('$kit build')) deliverKit(username,'build')
+    if (text.includes('$kit raid')) deliverKit(username,'raid')
+      if (text.includes('$kit invis')) deliverKit(username,'invis')
+    if (text.includes('$kit shulker')) deliverKit(username,'shulker')
+      if (text.includes('$kit quartz')) deliverKit(username,'quartz')
+    if (text.includes('$kit redstone')) deliverKit(username,'redstone')
+   
 
     // --- LINK COMMAND ---
     if (text.trim() === '$link') {
@@ -499,10 +495,3 @@ async function returnAllShulkers(chestPos) {
 
   console.log('✅ Discord bot ready. Minecraft bot will only start when you type $start')
 })()
-
-
-
-
-
-
-
